@@ -1,9 +1,10 @@
 # Name: main.py
 # Author: Robin Goyal
-# Last-Modified: March 3, 2018
+# Last-Modified: March 4, 2018
 # Purpose: Count the number of words in a reddit post
 
 import praw
+from bs4 import BeautifulSoup
 
 
 def get_reddit_instance():
@@ -36,8 +37,26 @@ def get_post(url):
     #   - Will need to use the MoreComments object to access
     #     each reply to the comments
 
+    # Get title
+    title = submission.title
+
+    # Extract text from html formatted body
+    soup = BeautifulSoup(submission.selftext, 'html.parser')
+    body = soup.get_text().split()
+
+    # Printing out comments
+    for top_level_comment in submission.comments:
+        # Encounters MoreComments error if post includes load more comments button
+        # Need to use the MoreComments model from praw to overcome this error
+        print(top_level_comment.body)
+
+    # Print title and body
+    print(title)
+    print(body)
+
+
 def main():
-    get_post("https://www.reddit.com/r/leafs/comments/81s050/maple_leafscapitals_outdoor_game_proceeding_as/")
+    get_post("https://www.reddit.com/r/books/comments/81v3g1/what_phrase_in_a_book_description_will_ensure_you/")
 
 
 if __name__ == "__main__":
