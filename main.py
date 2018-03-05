@@ -5,6 +5,8 @@
 
 import praw
 from bs4 import BeautifulSoup
+# import string
+import re
 
 
 def get_reddit_instance():
@@ -27,36 +29,36 @@ def get_post(url):
     # Get reddit post
     submission = reddit.submission(url=url)
 
-    #####################
-    # Need to call submission.title before printing vars(submission) to
-    # view all of the individual attributes of the submission instance
-    # - Title of post is in submission.title
-    # - Body of post is in submission.selftext
-    #   - Parse body text using beautiful soup
-    # - Comments are in self.comments
-    #   - Will need to use the MoreComments object to access
-    #     each reply to the comments
-
     # Get title
     title = submission.title
 
     # Extract text from html formatted body
     soup = BeautifulSoup(submission.selftext, 'html.parser')
-    body = soup.get_text().split()
+    body = soup.get_text()
 
-    # Printing out comments
-    for top_level_comment in submission.comments:
-        # Encounters MoreComments error if post includes load more comments button
-        # Need to use the MoreComments model from praw to overcome this error
-        print(top_level_comment.body)
+    # Get all comments (nested and MoreComments) in post
+    submission.comments.replace_more(limit=None)
+    all_comments = submission.comments.list()
+
+    # Remove all punctuation except for words and spaces
+    regex = r'[^\w\s]|_'
+
+    # List function obtains all nested comments as well
+    for i, comment in enumerate(all_comments):
+        # filtered_string = top_level_comment.body.translate(translator)
+        s = re.sub(regex, '', comment.body)
+        print(s.split())
 
     # Print title and body
     print(title)
     print(body)
 
 
+# def parse_str(string)
+
+
 def main():
-    get_post("https://www.reddit.com/r/books/comments/81v3g1/what_phrase_in_a_book_description_will_ensure_you/")
+    get_post("https://www.reddit.com/r/books/comments/822jin/reading_has_helped_me_take_my_mind_off_of_my/")
 
 
 if __name__ == "__main__":
