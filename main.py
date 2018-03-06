@@ -5,7 +5,6 @@
 
 import praw
 from bs4 import BeautifulSoup
-# import string
 import re
 
 
@@ -29,36 +28,59 @@ def get_post(url):
     # Get reddit post
     submission = reddit.submission(url=url)
 
-    # Get title
-    title = submission.title
+    return submission
 
-    # Extract text from html formatted body
-    soup = BeautifulSoup(submission.selftext, 'html.parser')
-    body = soup.get_text()
 
-    # Get all comments (nested and MoreComments) in post
-    submission.comments.replace_more(limit=None)
-    all_comments = submission.comments.list()
+def get_freq_dict(submission):
+
+    # Initialize dictionary
+    words_frequency = {}
+    total_words = 0
 
     # Remove all punctuation except for words and spaces
     regex = r'[^\w\s]|_'
 
-    # List function obtains all nested comments as well
-    for i, comment in enumerate(all_comments):
-        # filtered_string = top_level_comment.body.translate(translator)
-        s = re.sub(regex, '', comment.body)
-        print(s.split())
+    # Update dictionary with title frequency
+    title = re.sub(regex, '', submission.title)
+    total_words += update_frequency(words_frequency, title)
 
-    # Print title and body
-    print(title)
-    print(body)
+    # Update dictionary with body frequency
+    soup = BeautifulSoup(submission.selftext, 'html.parser')
+    body = re.sub(regex, '', soup.get_text())
+    total_words += update_frequency(words_frequency, body)
+
+    # Update dictionary with all comments
+    submission.comments.replace_more(limit=None)
+    all_comments = submission.comments.list()
+
+    for comment in all_comments:
+        comment = re.sub(regex, '', comment.body)
+        total_words += update_frequency(words_frequency, comment)
+
+    return total_words, words_frequency
 
 
-# def parse_str(string)
+def update_frequency(d, string):
+    num_words = 0
+    for word in string.split():
+        word = word.lower()
+        num_words += 1
+        if word in d:
+            d[word] += 1
+        else:
+            d[word] = 1
+
+    return num_words
 
 
 def main():
-    get_post("https://www.reddit.com/r/books/comments/822jin/reading_has_helped_me_take_my_mind_off_of_my/")
+    submission = get_post("https://www.reddit.com/r/funny/comments/82ckwf/pic_of_two_plump_pigeons_perched_on_the_ledge_but/")
+
+    total_words, words_frequency = get_freq_dict(submission)
+
+    print(total_words)
+    for k in sorted(words_frequency, key=words_frequency.get, reverse=True)[0:20]:
+        print(k, words_frequency[k])
 
 
 if __name__ == "__main__":
