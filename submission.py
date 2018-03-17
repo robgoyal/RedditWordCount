@@ -1,6 +1,6 @@
 # Name: submission.py
 # Author: Robin Goyal
-# Last-Modified: March 13, 2018
+# Last-Modified: March 17, 2018
 # Purpose: Class representing a reddit submission
 
 
@@ -11,28 +11,30 @@ import re
 from nltk.corpus import stopwords
 
 
-def update_dict(words_freq, string):
+def update(d, string):
     """
     (dict: (str, int), str))
 
-    Update dict from the frequency of words in string.
+    Update dictionary d from the frequency of words in string.
 
     Example:
-    >>> dict = {"the": 2, "bird": 3}
-    >>> update_freq_dict(dict, "the bird is red")
-    >>> dict
+    >>> d = {"the": 2, "bird": 3}
+    >>> update(d, "the bird is red")
+    >>> d
     {"the": 3, "bird": 4, "is": 1, "red": 1}
     """
 
-    parsed_words = parse_string(string)
+    # List of parsed words
+    parsed_words = parse(string)
 
-    # Lowercase word for consistency
     for word in parsed_words:
+
+        # Lowercase word for consistency in dictionary
         word = word.lower()
-        words_freq[word] = words_freq.get(word, 0) + 1
+        d[word] = d.get(word, 0) + 1
 
 
-def parse_string(string):
+def parse(string):
     """
     (str) -> list: str
 
@@ -44,48 +46,52 @@ def parse_string(string):
     ["its", "the", "first", "day", "of", "the", "new", "year"]
     """
 
+    # Apply regular expression to string
     regex = r'[^\w\s]|_'
-    parsed_words = re.sub(regex, '', string).split()
+    words = re.sub(regex, '', string)
 
-    return parsed_words
+    # Return a list with whitespace removed
+    return words.split()
 
 
-def filter_common_words(words_freq):
+def filter_common_words(d):
     """
     (dict: (str, int)) -> (dict: (str, int))
 
     Returns a dictionary with common english words filtered
-    from dict as specified by nltk.corpus.stopwords.words.
+    from d as specified by nltk.corpus.stopwords.words.
 
     Example:
     >>> filter_common_words({"blue": 3, "the": 2, "sky": 3, "is": 1})
     {"blue": 3, "sky": 3}
     """
 
-    d = words_freq.copy()
+    d = d.copy()
 
-    common_words = parse_string(" ".join(stopwords.words('english')))
+    common_words = parse(" ".join(stopwords.words('english')))
 
-    filtered_word_freq = {word: d[word] for word in d if word not in common_words}
+    filtered_d = {word: d[word] for word in d if word not in common_words}
 
-    return filtered_word_freq
+    return filtered_d
 
 
-def get_top_words(words_freq):
+def get_top_words(frequency):
     """
     (dict: (str, int)) -> (dict: (str, int))
 
     Returns a dictionary containing the 15 most frequent
     words from dict and the remaining word frequencies
-    summed as a single key known as "others". Original
-    dictionary is returned if less than 15 words.
+    summed as a single key known as "__others". Original
+    dictionary is returned if less than 20 words.
     """
 
-    d = {}
+    # Create dictionary with top 20 words
+    sorted_frequency = sorted(frequency, key=frequency.get, reverse=True)
+    d = {k: frequency[k] for k in sorted_frequency[:20]}
 
-    sorted_words_freq = sorted(words_freq, key=words_freq.get, reverse=True)
-    for k in sorted_words_freq[:20]:
-        d[k] = words_freq[k]
+    # Create key for remaining words in frequency dictionary
+    if len(frequency) > 20:
+        d["__other"] = sum(frequency[k] for k in sorted_frequency[20:])
 
     return d
 
@@ -131,12 +137,13 @@ class Submission(object):
         self.last_request = datetime.now()
         self.body = submission.selftext_html
         self.frequency = {}
+        self.total_words = None
 
         # Retrieve all comments from submission
         submission.comments.replace_more(limit=None)
         self.comments = submission.comments.list()
 
-    def get_freq_dict(self):
+    def get_frequency(self):
         """
         (Submission) -> dict: (str, int)
 
@@ -145,18 +152,18 @@ class Submission(object):
         """
 
         # Update frequency of title
-        update_dict(self.frequency, self.title)
+        update(self.frequency, self.title)
 
         # Remove HTML syntax from body
         soup = bs4.BeautifulSoup(self.body, 'html.parser')
         self.body = soup.get_text()
 
         # Update frequency of body
-        update_dict(self.frequency, self.body)
+        update(self.frequency, self.body)
 
         # Update frequency of all comments in submission
         for comment in self.comments:
-            update_dict(self.frequency, comment.body)
+            update(self.frequency, comment.body)
 
         # Filter common words from frequency dictionary
         self.frequency = filter_common_words(self.frequency)
@@ -164,4 +171,11 @@ class Submission(object):
         # Retrieve the top 20 common words
         self.frequency = get_top_words(self.frequency)
 
-        return self.frequency
+        # Construct dictionary including frequency dictionary and submission attributes
+        submission_d = {self.id: {"title": self.title, "num_words": self.total_words,
+                                  "subreddit_id": self.subreddit_id, "words": self.frequency,
+                                  "last_request": self.last_request
+                                  }
+                        }
+
+        return submission_d
